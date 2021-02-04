@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+
+    <!-- Ensure that everything scales appropriately on a mobile device -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+    <!-- Let's borrow a cool looking Font from Google -->
+    <link href='https://fonts.googleapis.com/css?family=Quicksand:300,400,700' rel='stylesheet' type='text/css'>
+
+    <link href="css/styles.css" rel="stylesheet">
+</head>
+
+<body>
+
+
+    <div id="gameArea">
+        <!-- This is where the templates defined below will be used -->
+    </div>
+
+    <!-- Main Title Screen that appears when the page loads for the first time -->
+    <script id="intro-screen-template" type="text/template">
+        <div class="titleWrapper">
+            <div class="title">
+                Dead Last
+            </div>
+
+            <div class="buttons">
+                <button id="btnHostGame" class="btn host">HOST GAME</button>
+                <div style="clear:both"></div>
+            </div>
+
+			<div style="height: 20px;"></div>
+
+			<div class="buttons">
+				<button id="btnPreJoinGame" class="btn prejoin">JOIN GAME</button>
+                <div style="clear:both"></div>
+			</div>
+
+			<div style="height: 20px;"></div>
+
+			<div class="buttons">
+				<button id="btnHowToPlay" class="btn instructions">HOW TO PLAY</button>
+                <div style="clear:both"></div>
+			</div>
+        </div>
+    </script>
+
+	<!-- Host Game Page -->
+	<script id="host-game-template" type="text/template">
+		<div class="titleWrapper">
+
+			<div class="inputLabel">
+				Enter Name Below
+			</div>
+			
+			<input class="enterName" id="inputHostName" type="text" maxlength="12">
+
+			<div style="height: 20px;"></div>
+
+			<div class="buttons">
+				<button id="btnCreateGame" class="btn create">Create Game</button>
+                <div style="clear:both"></div>
+			</div>
+
+			<div style="height: 20px;"></div>
+
+			<div class="buttons">
+				<button id="btnReturnHome" class="btn return">BACK</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Join Game Page -->
+	<script id="join-game-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="inputLabel">
+				Enter Name Below
+			</div>
+			
+			<input type="text" maxlength="12" id="inputPlayerName">
+
+			<div style="height: 20px;"></div>
+
+			<div class="inputLabel">
+				Enter Room Code below
+			</div>
+			
+			<input type="text" maxlength="6" id="inputRoomCode">
+
+			<div style="height: 20px;"></div>
+
+			<div class="buttons">
+				<button id="btnJoinGame" class="btn join">Join Game</button>
+                <div style="clear:both"></div>
+			</div>
+
+			<div style="height: 20px;"></div>
+
+			<div class="buttons">
+				<button id="btnReturnHome" class="btn return">BACK</button>
+                <div style="clear:both"></div>
+			</div>
+		</div class>
+	</script>
+
+	<!-- Host Lobby Area -->
+	<script id="host-game-lobby-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Lobby
+            </div>
+
+			<div class="inputLabel" id="hostRoomCode"></div>
+
+			<div class="inputLabel" id="hostPlayerList"></div>
+
+			<div class="buttons">
+				<button id="btnStartGame" class="btn start">Start Game</button>
+                <div style="clear:both"></div>
+			</div>
+		</div class>
+	</script>
+
+	<!-- Player Lobby Area -->
+	<script id="player-game-lobby-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Lobby
+            </div>
+			
+			<div class="inputLabel" id="wait message">
+				Waiting for host to start game			
+			</div>				
+
+			<div class="inputLabel" id="playerRoomCode"></div>
+
+			<div class="inputLabel" id="playerList"></div>
+
+		</div class>
+	</script>
+
+	<!-- How to play page -->
+	<script id="how-to-play-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                How To Play: Dead Last
+            </div>
+
+			<div class="buttons">
+				<button id="btnReturnHome" class="btn return">BACK</button>
+                <div style="clear:both"></div>
+			</div>
+		</div class>
+	</script>
+
+    <!-- JavaScript Libraries -->
+
+    <!-- jQuery! -->
+    <script src="libs/jquery-2.0.2.min.js"></script>
+
+    <!-- TextFit resizes text to fill a container.
+        It's used so the titles and game words fit properly on any size screen.
+        https://github.com/STRML/textFit   -->
+    <script src="libs/textFit.min.js"></script>
+
+    <!-- If Socket.IO is used with Express, then the /socket.io/ path will
+        serve the proper Socket.IO javascript files used by the browser -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- app.js is where all the client-side Anagrammatix game logic -->
+    <script src="app.js"></script>
+
+</body>
+</html>
