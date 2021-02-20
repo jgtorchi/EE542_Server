@@ -123,3 +123,16 @@ input[type="text"] {
     font-size: 40px;
     width: 60%
 }   
+
+/* ******************************
+          Select Option
+   (standard select on all pages)
+   ****************************** */
+select {
+    position: relative;
+    display: block;
+    margin: 0px auto;
+    font-size: 40px;
+    width: 60% 
+}
+

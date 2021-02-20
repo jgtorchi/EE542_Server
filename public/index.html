@@ -143,6 +143,102 @@
 		</div class>
 	</script>
 
+	<!-- Voting Screen -->
+	<script id="voting-screen-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Voting Phase
+            </div>
+				
+			<div class="inputLabel">
+                Vote for a player to eliminate
+            </div>
+
+			<select id="playerSelect">
+			</select>
+
+			<div class="buttons">
+				<button id="btnSubmitVote" class="btn sumbit">Submit Vote</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Waiting Screen -->
+	<script id="waiting-screen-template" type="text/template">
+		<div class="titleWrapper">
+				
+			<div class="inputLabel">
+                Waiting for other players to vote
+            </div>
+
+			<div class="inputLabel" id="waitList">
+                Waiting for: 
+            </div>
+
+			<div class="buttons">
+				<button id="btnEndRound" class="btn end">End Round</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Display Player Actions -->
+	<script id="display-player-actions-screen-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Action Summary
+            </div>
+				
+			<div class="inputLabel" id="actions">
+            </div>
+
+			<div class="buttons">
+				<button id="btnViewVoteTotals" class="btn vote totals">View Totals</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Display Vote Totals -->
+	<script id="display-vote-totals-screen-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Vote Totals
+            </div>
+				
+			<div class="inputLabel" id="voteTotals">
+            </div>
+
+			<div class="buttons">
+				<button id="btnViewResults" class="btn results">View Results</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Display Results -->
+	<script id="results-screen-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Round Results
+            </div>
+				
+			<div class="inputLabel" id="results">
+            </div>
+
+			<div class="inputLabel" id="buttons">
+				<button id="btnReturn" class="btn return">Return to Lobby</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
 	<!-- How to play page -->
 	<script id="how-to-play-template" type="text/template">
 		<div class="titleWrapper">
