@@ -151,7 +151,7 @@
             </div>
 				
 			<div class="inputLabel">
-                Vote for a player to eliminate
+                Vote for a player to eliminate or Ambush
             </div>
 
 			<select id="playerSelect">
@@ -196,25 +196,12 @@
             </div>
 
 			<div class="buttons">
-				<button id="btnViewVoteTotals" class="btn vote totals">View Totals</button>
+				<button id="btnViewResults" class="btn results">View Results</button>
                 <div style="clear:both"></div>
 			</div>
-
-		</div class>
-	</script>
-
-	<!-- Display Vote Totals -->
-	<script id="display-vote-totals-screen-template" type="text/template">
-		<div class="titleWrapper">
-			<div class="title">
-                Vote Totals
-            </div>
-				
-			<div class="inputLabel" id="voteTotals">
-            </div>
-
+			
 			<div class="buttons">
-				<button id="btnViewResults" class="btn results">View Results</button>
+				<button id="btnStartAmbush" class="btn ambush">Start Ambush</button>
                 <div style="clear:both"></div>
 			</div>
 
@@ -231,7 +218,87 @@
 			<div class="inputLabel" id="results">
             </div>
 
-			<div class="inputLabel" id="buttons">
+			<div class="buttons">
+				<button id="btnContinue" class="btn continue">Continue</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Ambush Screen -->
+	<script id="ambush-screen-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Ambush Phase
+            </div>
+				
+			<div class="inputLabel">
+                Select a player to Eliminate
+            </div>
+
+			<select id="ambushSelect">
+			</select>
+
+			<div class="buttons">
+				<button id="btnSubmitAmbush" class="btn sumbit ambush">Submit Target</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Ambush Waiting Screen -->
+	<script id="ambush-waiting-screen-template" type="text/template">
+		<div class="titleWrapper">
+				
+			<div class="inputLabel">
+                Waiting for ambush selection
+            </div>
+
+			<div class="inputLabel" id="ambushWaitList">
+                Waiting for: 
+            </div>
+
+			<div class="buttons">
+				<button id="btnEndAmbush" class="btn end">End Ambush</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Ambush Summary Screen -->
+	<script id="ambush-summary-screen-template" type="text/template">
+		<div class="titleWrapper">
+				
+			<div class="title">
+                Ambush Summary
+            </div>
+
+			<div class="inputLabel" id="ambushSummary">
+            </div>
+
+			<div class="buttons">
+				<button id="btnGetResults" class="btn round summary">View Results</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Display Winner -->
+	<script id="winner-screen-template" type="text/template">
+		<div class="titleWrapper">
+				
+			<div class="inputLabel" id="winner">
+            </div>
+
+			<div class="inputLabel" id="finalGold">
+				Player's final gold value:
+            </div>
+
+			<div class="buttons">
 				<button id="btnReturn" class="btn return">Return to Lobby</button>
                 <div style="clear:both"></div>
 			</div>
@@ -267,7 +334,7 @@
         serve the proper Socket.IO javascript files used by the browser -->
     <script src="/socket.io/socket.io.js"></script>
 
-    <!-- app.js is where all the client-side Anagrammatix game logic -->
+    <!-- app.js is where all the client-side game logic is-->
     <script src="app.js"></script>
 
 </body>

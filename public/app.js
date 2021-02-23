@@ -21,6 +21,9 @@ jQuery(function($){
 			IO.socket.on('initGame',App.initGame);
 			IO.socket.on('playerVoted',App.playerVoted);
 			IO.socket.on('votingDone',App.dispPlayerActions);
+			IO.socket.on('playerAmbushed',App.playerAmbushed);
+			IO.socket.on('ambushOver',App.dispAmbushSummary);
+			IO.socket.on('gameOver',App.gameOver);
 			IO.socket.on('error',App.error);
         },
 
@@ -60,18 +63,23 @@ jQuery(function($){
 		// alive players
 		playersAlive : [],
 
-		// serves as list of players alive at beginning of round
-		// previously alive
-		prevAlive : [],
-
 		//players who have voted
 		playersDone : [],
+
+		//player votes for the current round
+		playerVotes : [],
 
 		//players who got eliminated this round
 		playersElimed : [],
 
-		//players who got eliminated this round
-		voteCnts : [],
+		// number of gold pieces per player
+		goldPieces : [],
+
+		// total value of players gold tokens
+		goldValue : [],
+		
+		// list of players who succesfully ambushed
+		ambushingPlayers: [],
 
         /* *************************************
          *                Setup                *
@@ -101,9 +109,11 @@ jQuery(function($){
 			App.$templateVotingScreen = $('#voting-screen-template').html();
 			App.$waitingScreen = $('#waiting-screen-template').html();
 			App.$playerActionsScreen = $('#display-player-actions-screen-template').html();
-			App.$voteTotalsScreen = $('#display-vote-totals-screen-template').html();
 			App.$resultsScreen = $('#results-screen-template').html();
-
+			App.$ambushScreen = $('#ambush-screen-template').html();
+			App.$ambushWaitScreen = $('#ambush-waiting-screen-template').html();
+			App.$ambushSummaryScreen = $('#ambush-summary-screen-template').html();
+			App.$winnerScreen = $('#winner-screen-template').html();
         },
 
         /**
@@ -116,9 +126,11 @@ jQuery(function($){
 			App.$doc.on('click', '#btnPreJoinGame', App.showJoin);
 			App.$doc.on('click', '#btnReturnHome', App.showInitScreen);
 			App.$doc.on('click', '#btnSubmitVote', App.submitVote);
-			App.$doc.on('click', '#btnViewVoteTotals', App.showVoteTotals);
 			App.$doc.on('click', '#btnViewResults', App.showResults);
-			App.$doc.on('click', '#btnReturn', App.return);
+			App.$doc.on('click', '#btnContinue', App.continue);
+			App.$doc.on('click', '#btnStartAmbush', App.ambush);
+			App.$doc.on('click', '#btnSubmitAmbush', App.submitAmbush);
+			App.$doc.on('click', '#btnGetResults', App.showResults);
 
             // Host
 			App.$doc.on('click', '#btnCreateGame', App.createGame);
@@ -194,7 +206,7 @@ jQuery(function($){
 			}
         },
 
-		// show waiting screen
+		// occurs when btnSubmitVote is pressed, get player's vote and send it to the server
 		submitVote: function() {
 			var selectedPlayer = $('#playerSelect').val();
             App.$gameArea.html(App.$waitingScreen);
@@ -205,17 +217,6 @@ jQuery(function($){
 				$('#btnEndRound').hide();
 			}
 			IO.socket.emit('onSubmitVote',{roomCode: App.roomCode, vote: selectedPlayer, username: App.name});
-        },
-
-		// show vote totals
-		showVoteTotals: function() {
-			App.$gameArea.html(App.$voteTotalsScreen);
-			App.doTextFit('.title');
-			// display vote totals
-			for (i = 0; i < App.voteCnts.length; i++) {
-				$('#voteTotals').append('<br/>');
-				$('#voteTotals').append(App.prevAlive[i]+": "+App.voteCnts[i]);
-			}
         },
 
 		// show results
@@ -234,55 +235,97 @@ jQuery(function($){
 				$('#results').append('<br/>');
 				$('#results').append(App.playersElimed[i]);
 			}
+
+			$('#results').append('<br/>');
+			$('#results').append("Gold pieces of each player: ");
+			for (i = 0; i < App.goldPieces.length; i++) {
+				$('#results').append('<br/>');
+				$('#results').append(App.players[i]+": "+App.goldPieces[i]);
+			}
+
 			if(App.playersAlive.length>2){
-				$('#btnReturn').text('Return to lobby');
+				$('#btnContinue').text('Continue');
 			}
 			else{
-				$('#btnReturn').text('Next Round');
+				$('#btnContinue').text('New Round');
 			}
         },
 		
-
-		// return button was pressed
-		// sends player to lobby or to next round depending on players left alive
-		return: function() {
+		// continue button was pressed
+		// sends players to next round
+		continue: function() {
 			if(App.playersAlive.length<=2){
-				// go back to lobby if two or less players are left
-				if(App.userRole == 'Host'){
-					App.$gameArea.html(App.$templateHostGameLobby);
-					$('#hostRoomCode').text('Room Code: ');
-					$('#hostRoomCode').append(App.roomCode);
-				    App.doTextFit('.title');
-				}
-				else{
-					//display the player's game lobby
-		        	App.$gameArea.html(App.$templatePlayerGameLobby);
-					$('#playerRoomCode').text('Room Code: ');
-					$('#playerRoomCode').append(App.roomCode);
-					App.doTextFit('.title');
-				}
-				App.updatePlayerList();
+				//if two or less players left, then round is over
+				// reset the players alive list
+				App.playersAlive = App.players;
+			}
+			// continue voting if game is not over
+			if(App.playersAlive.includes(App.name)){
+				// show voting area, if still alive
+				playersDone = []; // empty players done list
+				App.$gameArea.html(App.$templateVotingScreen);
+				App.doTextFit('.title');
+				App.updateVotingList();
 			}
 			else{
-				// start new round if more than two left
-				if(App.playersAlive.includes(App.name)){
-					// show voting area, if still alive
-					playersDone = []; // empty players done list
-					App.$gameArea.html(App.$templateVotingScreen);
-					App.doTextFit('.title');
-					App.updateVotingList();
+				//otherwise send to waiting screen
+				App.$gameArea.html(App.$waitingScreen);
+				App.updateWaitList()
+			}
+        },
+
+		// if there is a succesful ambush, this occurs after displaying player actions
+		ambush: function() {
+			if(App.ambushingPlayers.includes(App.name)){
+				// if player is an ambusher, show them ambush screen
+				App.$gameArea.html(App.$ambushScreen);
+				var targetCnt = 0;
+				// allow ambusher to select any player that voted for them
+				console.log('Players Alive: '+App.playersAlive);
+				for (var i = 0; i < App.playersAlive.length; i++) {
+					if((App.playersAlive[i] !== App.name)&&(App.playerVotes[i]==App.name)){
+						// if player is not the user and player voted for user, then they can be targeted
+						targetCnt++; //increment target counter
+						$('#ambushSelect').append($('<option>', {
+							value: App.playersAlive[i],
+							text: App.playersAlive[i]
+						}));
+					}
 				}
-				else{
-					//otherwise send to waiting screen
-					App.$gameArea.html(App.$waitingScreen);
-					App.updateWaitList()
+				if(targetCnt==0){
+					// if player has no valid ambush targets, list targets as not available
+					$('#playerSelect').append($('<option>', {
+						value: 'Ambush',  //player name cannot be Ambush, so this is the null, no target player vote value
+						text: 'No Valid Targets'
+					}));
 				}
 			}
-			
-        },
-		
+			else{
+				// otherwise, send player to waiting room
+				App.$gameArea.html(App.$ambushWaitScreen);
+				// update the waiting list
+				App.updateAmbushWaitList();
+			}
+		},
 
-		
+		// occurs when btnSubmitAmbush is pressed, get ambush selection and send it to the server
+		submitAmbush: function() {
+			var selectedPlayer = $('#ambushSelect').val();
+            App.$gameArea.html(App.$ambushWaitScreen);
+			if(App.userRole == 'Host'){
+				$('#btnEndAmbush').show();
+			}
+			else{
+				$('#btnEndAmbush').hide();
+			}
+			IO.socket.emit('onSubmitAmbush',{roomCode: App.roomCode, vote: selectedPlayer, username: App.name});
+        },
+
+		dispWinner: function() {
+			App.$gameArea.html(App.$winnerScreen);
+			$('#winner').text(App.winners[0]);
+			$('#winner').append(' has won!');
+		},
 
 		// server initiated events
 
@@ -334,21 +377,109 @@ jQuery(function($){
 			App.updateWaitList();
 		},
 
+		// occurs when server recieves ambush target
+		playerAmbushed: function(data){
+			App.ambushingPlayers = data.ambushingPlayers;
+			App.updateAmbushWaitList();
+		},
+
+		// a player has won, display the winner's name(s)
+		// data = {winners: ,goldValue:}
+		gameOver: function(data) {
+			$('#actions').append(winners[0]);
+			App.$gameArea.html(App.$winnerScreen);
+			for (i = 1; i < data.winners.length; i++) {
+				$('#actions').append(' and ');
+				$('#actions').append(winners[i]);
+			}
+			if(data.winners.length>1){
+				$('#actions').append(' have tied!');
+			}
+			else{
+				$('#actions').append(' has won!');
+			}
+			$('#actions').append('<br/>');
+			
+			$('#finalGold').append('Final Gold Value: ');
+			for (i = 1; i < App.players.length; i++) {
+				$('#actions').append('<br/>');
+				$('#finalGold').append(App.players[i]+': '+data.goldValue[i]);
+			}
+        },
+
+		// server has recieved all ambushes
+		// data = {ambushSummary: , playersAlive: , goldPieces: }
+		dispAmbushSummary: function(data) {
+			// show ambush summary screen
+			App.$gameArea.html(App.$ambushSummaryScreen);
+			App.playersAlive = data.playersAlive;
+			App.goldPieces = data.goldPieces;
+			for (i = 0; i < data.ambushSummary.length; i++) {
+				$('#ambushSummary').append(data.ambushSummary[i].ambusher +' ambushed '+ data.ambushSummary[i].target);
+				$('#ambushSummary').append('<br/>');
+				if(!App.playersElimed.includes(data.ambushSummary[i].target)){
+					// add targeted player to elimed list if not already there
+					App.playersElimed.push(data.ambushSummary[i].target);
+				}
+			}
+			// clear ambushing players list
+			App.ambushingPlayers = [];
+		},
+
 		// server has recieved all votes for round. Display players actions
 		dispPlayerActions: function(data) {
             App.$gameArea.html(App.$playerActionsScreen);
 			App.doTextFit('.title');
 			App.playersDone = []; // reset players done list
-			App.prevAlive = App.playersAlive; // store players alive at beginning of round
-			App.playersAlive = data.playersAlive; // update players alive list
-			// save elims and vote counts for later
+			// save elims for displaying results
 			App.playersElimed = data.playersElimed;
-			App.voteCnts = data.voteCnts;
+			// save gold pieces for displaying results
+			App.goldPieces = data.goldPieces;
+			// save player votes for ambush case
+			App.playerVotes = data.playerVotes;
+			// display players who were majority vote
+			$('#actions').append(App.playersAlive[data.majorityVoteIdxs[0]]);
+			for (i = 1; i < data.majorityVoteIdxs.length; i++) {
+				$('#actions').append(' and ');
+				$('#actions').append(App.playersAlive[data.majorityVoteIdxs[i]]);
+			}
+			if(data.majorityVoteIdxs.length>1){
+				$('#actions').append(' were the majority vote with '+data.maxVote+' votes');
+			}
+			else{
+				$('#actions').append(' was the majority vote with '+data.maxVote+' votes');
+			}
+
+			// store ambushing players
+			App.ambushingPlayers = data.ambushingPlayers;
+			if(data.ambushingPlayers.length>0){
+				// if there was a succesful ambush
+				$('#actions').append('<br/>');
+				$('#actions').append(data.ambushingPlayers[0]);
+				for (i = 1; i < data.ambushingPlayers.length; i++) {
+					$('#actions').append(' and ');
+					$('#actions').append(data.ambushingPlayers[i]);
+				}
+				$('#actions').append(' ambushed successfully');
+				// hide the view results button if there is ambush
+				$('#btnViewResults').hide();
+			}
+			else{
+				// otherwise hide the ambush button
+				$('#btnStartAmbush').hide();
+			}
+
 			// display all player actions
 			for (i = 0; i < data.playerVotes.length; i++) {
 				$('#actions').append('<br/>');
-				$('#actions').append(App.prevAlive[i]+" voted for "+data.playerVotes[i]);
+				if(data.playerVotes[i] !== 'Ambush'){
+					$('#actions').append(App.playersAlive[i]+" voted for "+data.playerVotes[i]);
+				}
+				else{
+					$('#actions').append(App.playersAlive[i]+" chose Ambush");
+				}
 			}
+			App.playersAlive = data.playersAlive; // update players alive list
 			console.log('Player Votes: '+data.playerVotes);
         },
 		
@@ -380,31 +511,46 @@ jQuery(function($){
 			//console.log('Updated Player List');
         },
 
-		// updates player list in lobby area
+		// updates player list in voting wait area
 		updateWaitList: function(){
 			$('#waitList').text('Waiting For:');
 			var i;
 			for (i = 0; i < App.players.length; i++) {
 				if(!App.playersDone.includes(App.playersAlive[i])){
+					// if a living player is not done voting the display their name in waitlist
 					$('#waitList').append('<br/>');
 					$('#waitList').append(App.playersAlive[i]);
 				}
 			}
 		},
 
-		// updates player voting list
-		updateVotingList: function(){
+		// updates player list in ambush wait area
+		updateAmbushWaitList: function(){
+			$('#ambushWaitList').text('Waiting For:');
 			var i;
-			for (i = 0; i < App.playersAlive.length; i++) {
-				$('#playerSelect').append($('<option>', {
-					value: App.playersAlive[i],
-					text: App.playersAlive[i]
-				}));
+			for (i = 0; i < App.ambushingPlayers.length; i++) {
+				// display players who still need to choose ambush targets
+				$('#ambushWaitList').append('<br/>');
+				$('#ambushWaitList').append(App.ambushingPlayers[i]);
 			}
 		},
 
-			
-
+		// updates player voting list
+		updateVotingList: function(){
+			$('#playerSelect').append($('<option>', {
+				value: 'Ambush',
+				text: 'Ambush'
+			}));
+			var i;
+			for (i = 0; i < App.playersAlive.length; i++) {
+				if(App.playersAlive[i] !== App.name){
+					$('#playerSelect').append($('<option>', {
+						value: App.playersAlive[i],
+						text: App.playersAlive[i]
+					}));
+				}
+			}
+		},
 
         /**
          * Make the text inside the given element as big as possible
