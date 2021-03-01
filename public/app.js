@@ -1,3 +1,11 @@
+// title: app.js
+// by: Jacob Torchia
+// Description: client side javascript for the DeadLast game,
+// all incoming signals from host are handled by the IO section
+// client side messaging to host, displaying pages and button presses
+// are handled by then App section
+// Code based off of github guide and repo at the below address: 
+// https://github.com/FrontenderMagazine/building-multiplayer-games-with-node-js-and-socket-io/blob/master/eng.md
 jQuery(function($){    
     var IO = {
 
@@ -62,6 +70,9 @@ jQuery(function($){
 
 		// alive players
 		playersAlive : [],
+		
+		// alive players
+		prevPlayersAlive : [],
 
 		//players who have voted
 		playersDone : [],
@@ -131,6 +142,7 @@ jQuery(function($){
 			App.$doc.on('click', '#btnStartAmbush', App.ambush);
 			App.$doc.on('click', '#btnSubmitAmbush', App.submitAmbush);
 			App.$doc.on('click', '#btnGetResults', App.showResults);
+			App.$doc.on('click', '#btnReturnLobby', App.returnLobby);
 
             // Host
 			App.$doc.on('click', '#btnCreateGame', App.createGame);
@@ -222,7 +234,6 @@ jQuery(function($){
 		// show results
 		showResults: function() {
 			App.$gameArea.html(App.$resultsScreen);
-			App.doTextFit('.title');
 			// display results
 			$('#results').text('Players Remaining');
 			for (i = 0; i < App.playersAlive.length; i++) {
@@ -230,12 +241,14 @@ jQuery(function($){
 				$('#results').append(App.playersAlive[i]);
 			}
 			$('#results').append('<br/>');
+			$('#results').append('<br/>');
 			$('#results').append("Players Eliminated this round: ");
 			for (i = 0; i < App.playersElimed.length; i++) {
 				$('#results').append('<br/>');
 				$('#results').append(App.playersElimed[i]);
 			}
 
+			$('#results').append('<br/>');
 			$('#results').append('<br/>');
 			$('#results').append("Gold pieces of each player: ");
 			for (i = 0; i < App.goldPieces.length; i++) {
@@ -281,22 +294,24 @@ jQuery(function($){
 				App.$gameArea.html(App.$ambushScreen);
 				var targetCnt = 0;
 				// allow ambusher to select any player that voted for them
-				console.log('Players Alive: '+App.playersAlive);
-				for (var i = 0; i < App.playersAlive.length; i++) {
-					if((App.playersAlive[i] !== App.name)&&(App.playerVotes[i]==App.name)){
-						// if player is not the user and player voted for user, then they can be targeted
+				console.log('Players Alive at beginning of round: '+App.prevPlayersAlive);
+				console.log('Player Votes: '+App.playerVotes);
+				console.log('Player Name: '+App.name);
+				for (var i = 0; i < App.prevPlayersAlive.length; i++) {
+					if((App.prevPlayersAlive[i] !== App.name)&&(App.playerVotes[i]==App.name)&&(App.playersAlive.includes(App.prevPlayersAlive[i]))){
+						// if player is not the user, the player voted for the user and the player is alive, then they are a target
 						targetCnt++; //increment target counter
 						$('#ambushSelect').append($('<option>', {
-							value: App.playersAlive[i],
-							text: App.playersAlive[i]
+							value: App.prevPlayersAlive[i],
+							text: App.prevPlayersAlive[i]
 						}));
 					}
 				}
 				if(targetCnt==0){
 					// if player has no valid ambush targets, list targets as not available
-					$('#playerSelect').append($('<option>', {
+					$('#ambushSelect').append($('<option>', {
 						value: 'Ambush',  //player name cannot be Ambush, so this is the null, no target player vote value
-						text: 'No Valid Targets'
+						text: 'No Targets'
 					}));
 				}
 			}
@@ -320,11 +335,24 @@ jQuery(function($){
 			}
 			IO.socket.emit('onSubmitAmbush',{roomCode: App.roomCode, vote: selectedPlayer, username: App.name});
         },
-
-		dispWinner: function() {
-			App.$gameArea.html(App.$winnerScreen);
-			$('#winner').text(App.winners[0]);
-			$('#winner').append(' has won!');
+		
+		// from winner screen, return to lobby has been pressed
+		returnLobby: function() {
+			if(App.userRole == 'Host'){
+				App.$gameArea.html(App.$templateHostGameLobby);
+				// update the player list
+				$('#hostRoomCode').text('Room Code: ');
+				$('#hostRoomCode').append(App.roomCode);
+			    App.doTextFit('.title');
+			}
+			else{
+				//display the game's lobby
+            	App.$gameArea.html(App.$templatePlayerGameLobby);
+				$('#playerRoomCode').text('Room Code: ');
+				$('#playerRoomCode').append(App.roomCode);
+				App.doTextFit('.title');
+			}
+			App.updatePlayerList();
 		},
 
 		// server initiated events
@@ -386,23 +414,25 @@ jQuery(function($){
 		// a player has won, display the winner's name(s)
 		// data = {winners: ,goldValue:}
 		gameOver: function(data) {
-			$('#actions').append(winners[0]);
+			console.log('First Winner: '+ data.winners[0]);
 			App.$gameArea.html(App.$winnerScreen);
+			$('#winner').append(data.winners[0]);
 			for (i = 1; i < data.winners.length; i++) {
-				$('#actions').append(' and ');
-				$('#actions').append(winners[i]);
+				$('#winner').append(' and ');
+				$('#winner').append(data.winners[i]);
 			}
 			if(data.winners.length>1){
-				$('#actions').append(' have tied!');
+				$('#winner').append(' have tied!');
 			}
 			else{
-				$('#actions').append(' has won!');
+				$('#winner').append(' has won!');
 			}
-			$('#actions').append('<br/>');
+			$('#winner').append('<br/>');
+			$('#winner').append('<br/>')
 			
 			$('#finalGold').append('Final Gold Value: ');
-			for (i = 1; i < App.players.length; i++) {
-				$('#actions').append('<br/>');
+			for (i = 0; i < App.players.length; i++) {
+				$('#finalGold').append('<br/>');
 				$('#finalGold').append(App.players[i]+': '+data.goldValue[i]);
 			}
         },
@@ -412,14 +442,23 @@ jQuery(function($){
 		dispAmbushSummary: function(data) {
 			// show ambush summary screen
 			App.$gameArea.html(App.$ambushSummaryScreen);
+			App.doTextFit('.title');
 			App.playersAlive = data.playersAlive;
 			App.goldPieces = data.goldPieces;
 			for (i = 0; i < data.ambushSummary.length; i++) {
-				$('#ambushSummary').append(data.ambushSummary[i].ambusher +' ambushed '+ data.ambushSummary[i].target);
+				if(data.ambushSummary[i].target == 'Ambush'){
+					$('#ambushSummary').append(data.ambushSummary[i].ambusher +' had no targets to ambush');
+				}
+				else{
+					$('#ambushSummary').append(data.ambushSummary[i].ambusher +' ambushed '+ data.ambushSummary[i].target);
+				}
 				$('#ambushSummary').append('<br/>');
 				if(!App.playersElimed.includes(data.ambushSummary[i].target)){
 					// add targeted player to elimed list if not already there
-					App.playersElimed.push(data.ambushSummary[i].target);
+					if(data.ambushSummary[i].target !== 'Ambush'){
+						// the target must not be 'Ambush' since this is a null target, when there is no valid target available
+						App.playersElimed.push(data.ambushSummary[i].target);
+					}
 				}
 			}
 			// clear ambushing players list
@@ -469,6 +508,7 @@ jQuery(function($){
 				$('#btnStartAmbush').hide();
 			}
 
+			$('#actions').append('<br/>');
 			// display all player actions
 			for (i = 0; i < data.playerVotes.length; i++) {
 				$('#actions').append('<br/>');
@@ -479,6 +519,8 @@ jQuery(function($){
 					$('#actions').append(App.playersAlive[i]+" chose Ambush");
 				}
 			}
+			// store players alive at beginning of round for ambush
+			App.prevPlayersAlive = App.playersAlive;
 			App.playersAlive = data.playersAlive; // update players alive list
 			console.log('Player Votes: '+data.playerVotes);
         },

@@ -1,3 +1,9 @@
+// Title: main.js
+// Author: Jacob Torchia
+// Descrition: lauches server for DeadLast game on port 8080
+// Code based off of github guide and repo at the below address: 
+// https://github.com/FrontenderMagazine/building-multiplayer-games-with-node-js-and-socket-io/blob/master/eng.md
+
 // Import the Express module
 var express = require('express');
 
@@ -8,7 +14,7 @@ var path = require('path');
 var app = express();
 
 // Import the Dead Last game file.
-var agx = require('./DeadLastGame');
+var dlg = require('./DeadLastGame');
 
 // Create a simple Express application
 app.configure(function() {
@@ -31,7 +37,7 @@ io.set('log level',1);
 // Listen for Socket.IO Connections. Once connected, start the game logic.
 io.sockets.on('connection', function (socket) {
     console.log('client connected');
-    agx.initGame(io, socket);
+    dlg.initGame(io, socket);
 });
 
 

@@ -1,3 +1,10 @@
+// Title: DeadLastGame.js
+// Author: Jacob Torchia
+// Descrition: Server side code for DeadLast game
+// manages all the lobbies and synchronises players in a lobby
+// Code based off of github guide and repo at the below address: 
+// https://github.com/FrontenderMagazine/building-multiplayer-games-with-node-js-and-socket-io/blob/master/eng.md
+
 var io;
 var gameSocket;
 var rooms = {}; // object that holds rooms values
@@ -24,21 +31,45 @@ exports.initGame = function(sio, socket){
 }
 
 // Host has clicked the 'CREATE GAME' button with valid username
+// data = {username:}
 function onCreateNewGame(data) {
-    // create game session ID
-    var roomCode = ( Math.random() * 100000 ) | 0;
+	if(data.username == 'Ambush'){
+		// tell player their name cannot be Ambush
+        this.emit('error',{message: "Username cannot be Ambush"} );
+	}
+	else if(data.username.length <= 0){
+		// tell player their name is too short
+        this.emit('error',{message: "Username is too short"} );
+	}
+	else if(data.username.length >= 13){
+		// tell player their name is too long
+        this.emit('error',{message: "Username is too long"} );
+	}
+	else{
+		var roomExists = true;
+		while (roomExists){
+			// create room code
+			var roomCode = ( Math.random() * 100000 ) | 0;
+			
+			var room = gameSocket.manager.rooms["/" + data.roomCode];
 
-    // Return the roomCode and the socket ID to the browser client
-    this.emit('createLobby', {roomCode: roomCode, socketId: this.id});
+			// check if the room already exists
+			roomExists = (room != undefined);
+			// if room  already exists generate a new room code and check again
+		}
+		
+		// Return the roomCode and the socket ID to the browser client
+		this.emit('createLobby', {roomCode: roomCode, socketId: this.id});
 
-    // Join the Room and wait for the players
-    this.join(roomCode.toString());
+		// Join the Room and wait for the players
+		this.join(roomCode.toString());
 
-	// create room's player list
-	rooms[roomCode.toString()] = {};
-	rooms[roomCode.toString()]["playerList"] = [];
-	// add host to player list
-	rooms[roomCode.toString()]["playerList"].push(data.username);
+		// create room's player list
+		rooms[roomCode.toString()] = {};
+		rooms[roomCode.toString()]["playerList"] = [];
+		// add host to player list
+		rooms[roomCode.toString()]["playerList"].push(data.username);
+	}
 }
 
 // Host has clicked start game
@@ -64,27 +95,41 @@ function onStartGame(data) {
 // JOIN GAME has been pressed with roomCode and a valid username
 // data = {roomCode: , username: }
 function onJoinGame(data) {
-    // Look up the room ID in the Socket.IO manager object.
-    var room = gameSocket.manager.rooms["/" + data.roomCode];
+	if(data.username == 'Ambush'){
+		// tell player their name cannot be Ambush
+        this.emit('error',{message: "Username cannot be Ambush"} );
+	}
+	else if(data.username.length <= 0){
+		// tell player their name is too short
+        this.emit('error',{message: "Username is too short"} );
+	}
+	else if(data.username.length >= 13){
+		// tell player their name is too long
+        this.emit('error',{message: "Username is too long"} );
+	}
+	else{
+		// Look up the room ID in the Socket.IO manager object.
+		var room = gameSocket.manager.rooms["/" + data.roomCode];
 
-    // If the room exists...
-    if( room != undefined ){
-        // attach the socket id to the data object.
-        mySocketId = this.id;
+		// If the room exists...
+		if( room != undefined ){
+		    // attach the socket id to the data object.
+		    mySocketId = this.id;
 
-        // Join the room
-        this.join(data.roomCode);
-		
-		// add player to player list of room
-		rooms[data.roomCode]["playerList"].push(data.username);
+		    // Join the room
+		    this.join(data.roomCode);
+			
+			// add player to player list of room
+			rooms[data.roomCode]["playerList"].push(data.username);
 
-        // Emit an event notifying the clients that the player has joined the room.
-        io.sockets.in(data.roomCode).emit('playerJoinedRoom', {socketId: mySocketId, playerList: rooms[data.roomCode]["playerList"], roomCode: data.roomCode});
+		    // Emit an event notifying the clients that the player has joined the room.
+		    io.sockets.in(data.roomCode).emit('playerJoinedRoom', {socketId: mySocketId, playerList: rooms[data.roomCode]["playerList"], roomCode: data.roomCode});
 
-    } else {
-        // Otherwise, send an error message back to the player.
-        this.emit('error',{message: "This room does not exist."} );
-    }
+		} else {
+		    // Otherwise, send an error message back to the player.
+		    this.emit('error',{message: "This room does not exist."} );
+		}
+	}
 }
 
 // Submit Vote has been pressed
@@ -106,39 +151,48 @@ function onSubmitVote(data) {
 		console.log('round is now over, determining players eliminated');
 		var [maxVote, maxIndices] = getMaxIndices(rooms[data.roomCode]["playerVoteCnts"]);
 		var eliminatedPlayers = [];
-		// eliminate players who were majority vote and did not ambush
-		for (var i = 0; i < maxIndices.length; i++){
-			console.log('Getting Elimed Players');
-			console.log('Player: '+rooms[data.roomCode]["playersAlive"][maxIndices[i]]+' was majority vote');
-			console.log('They chose '+rooms[data.roomCode]["playerVotes"][maxIndices[i]]);
-			if(rooms[data.roomCode]["playerVotes"][maxIndices[i]]!=='Ambush'){
-				console.log('Player: '+rooms[data.roomCode]["playersAlive"][maxIndices[i]]+' did not ambush');
-				// eliminate majority vote players if they did not select ambush
-				eliminatedPlayers.push(rooms[data.roomCode]["playersAlive"][maxIndices[i]]);
+		if(maxVote==0){
+			// if no one was voted for (everyone ambushed)
+			// everyone is eilminated
+			eliminatedPlayers = rooms[data.roomCode]["playersAlive"].slice();
+			// no one is left alive
+			rooms[data.roomCode]["playersAlive"] = [];
+		}
+		else{
+			// otherwise go throuh normal elimination rules
+			// eliminate players who were majority vote and did not ambush
+			for (var i = 0; i < maxIndices.length; i++){
+				console.log('Getting Elimed Players');
+				console.log('Player: '+rooms[data.roomCode]["playersAlive"][maxIndices[i]]+' was majority vote');
+				console.log('They chose '+rooms[data.roomCode]["playerVotes"][maxIndices[i]]);
+				if(rooms[data.roomCode]["playerVotes"][maxIndices[i]]!=='Ambush'){
+					console.log('Player: '+rooms[data.roomCode]["playersAlive"][maxIndices[i]]+' did not ambush');
+					// eliminate majority vote players if they did not select ambush
+					eliminatedPlayers.push(rooms[data.roomCode]["playersAlive"][maxIndices[i]]);
+				}
+				else{
+					// store succesful ambushing players in the ambushingPlayers list
+					rooms[data.roomCode]["ambushingPlayers"].push(rooms[data.roomCode]["playersAlive"][maxIndices[i]]);
+				}
 			}
-			else{
-				// store succesful ambushing plauers in the ambushingPlayers list
-				rooms[data.roomCode]["ambushingPlayers"].push(rooms[data.roomCode]["playersAlive"][maxIndices[i]]);
+
+			// eliminate players who did not vote with majority, and were not the majority vote itself
+			for (var i = 0; i < rooms[data.roomCode]["playersAlive"].length; i++){
+				// get index of the player's vote
+				var voteIdx = rooms[data.roomCode]["playersAlive"].indexOf(rooms[data.roomCode]["playerVotes"][i]);
+				if((!maxIndices.includes(i)) && (!maxIndices.includes(voteIdx)) ){
+					// if player is not the majority vote and player did not make a majority vote
+					// then they are eliminated
+					eliminatedPlayers.push(rooms[data.roomCode]["playersAlive"][i]);
+				}
+			}
+
+			// remove all eliminated players from the players alive list
+			for (var i = 0; i < eliminatedPlayers.length; i++){
+				var plrIdx = rooms[data.roomCode]["playersAlive"].indexOf(eliminatedPlayers[i]);
+				rooms[data.roomCode]["playersAlive"].splice(plrIdx,1);
 			}
 		}
-
-		// eliminate players who did not vote with majority, and were not the majority vote itself
-		for (var i = 0; i < rooms[data.roomCode]["playersAlive"].length; i++){
-			// get index of the player's vote
-			var voteIdx = rooms[data.roomCode]["playersAlive"].indexOf(rooms[data.roomCode]["playerVotes"][i]);
-			if((!maxIndices.includes(i)) && (!maxIndices.includes(voteIdx)) ){
-				// if player is not the majority vote and player did not make a majority vote
-				// then they are eliminated
-				eliminatedPlayers.push(rooms[data.roomCode]["playersAlive"][i]);
-			}
-		}
-
-		// remove all eliminated players from the players alive list
-		for (var i = 0; i < eliminatedPlayers.length; i++){
-			var plrIdx = rooms[data.roomCode]["playersAlive"].indexOf(eliminatedPlayers[i]);
-			rooms[data.roomCode]["playersAlive"].splice(plrIdx,1);
-		}
-
 		if((rooms[data.roomCode]["playersAlive"].length<=2)&&(rooms[data.roomCode]["ambushingPlayers"].length==0)){
 			// if round is over (two or less players left and there are no succesfully ambushing players)	
 			// reward the remaining survivors	
@@ -194,16 +248,26 @@ function onSubmitAmbush(data) {
 			// if there are only 2 survivors the round is over
 			// reward the remaining survivors	
 			rewardSurvivors(data);
+			if(!checkGameOver(data)){
+				console.log('Sending Ambush summary to clients');
+				// if game is not over send the ambush summary to the clients
+				io.sockets.in(data.roomCode).emit('ambushOver', {ambushSummary: rooms[data.roomCode]["ambushSummary"],
+					playersAlive: rooms[data.roomCode]["playersAlive"], goldPieces: rooms[data.roomCode]["goldPieces"]});
+				
+			}
+			// reset players alive
+			rooms[data.roomCode]["playersAlive"] = rooms[data.roomCode]["playerList"].slice();
 		}
-		if(!checkGameOver(data)){
-			console.log('Sending Ambush summary to clients');
-			// if game is not over send the ambush summary to the clients
+		else{
+			//send the ambush summary to the clients
 			io.sockets.in(data.roomCode).emit('ambushOver', {ambushSummary: rooms[data.roomCode]["ambushSummary"],
 				playersAlive: rooms[data.roomCode]["playersAlive"], goldPieces: rooms[data.roomCode]["goldPieces"]});
-			// update length of voting arrays
-			rooms[data.roomCode]["playerVoteCnts"] = new Array(rooms[data.roomCode]["playersAlive"].length).fill(0);
-			rooms[data.roomCode]["playerVotes"] = new Array(rooms[data.roomCode]["playersAlive"].length).fill(0);
 		}
+
+		// update length of voting arrays
+		rooms[data.roomCode]["playerVoteCnts"] = new Array(rooms[data.roomCode]["playersAlive"].length).fill(0);
+		rooms[data.roomCode]["playerVotes"] = new Array(rooms[data.roomCode]["playersAlive"].length).fill(0);
+		
 		// clear the ambush summary
 		rooms[data.roomCode]["ambushSummary"] = [];
 	}
@@ -219,9 +283,10 @@ function rewardSurvivors(data) {
 		// if there are living players give them gold
 		if(rooms[data.roomCode]["playersAlive"].length == 1) {
 			// if only one player left give them 4 gold pieces
-			console.log(rooms[data.roomCode]["playerList"][0]+' is being given gold');
-			rooms[data.roomCode]["goldPieces"][0] = rooms[data.roomCode]["goldPieces"][0] + 4;
-			rooms[data.roomCode]["goldValue"][0] = rooms[data.roomCode]["goldValue"][0]+between(3, 5)+between(3, 5)+between(3, 5)+between(3, 5);
+			var plrIdx = rooms[data.roomCode]["playerList"].indexOf(rooms[data.roomCode]["playersAlive"][0]);
+			console.log(rooms[data.roomCode]["playerList"][plrIdx]+' is being given gold');
+			rooms[data.roomCode]["goldPieces"][plrIdx] = rooms[data.roomCode]["goldPieces"][0] + 4;
+			rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][0]+between(3, 5)+between(3, 5)+between(3, 5)+between(3, 5);
 		}
 		else{
 			// give remaining players two gold pieces each
@@ -232,6 +297,7 @@ function rewardSurvivors(data) {
 				rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][plrIdx]+between(3, 5)+between(3, 5);
 			}
 		}
+		console.log('Gold value for each player: '+rooms[data.roomCode]["goldValue"]);
 	}
 }
 
@@ -242,10 +308,12 @@ function checkGameOver(data) {
 		// if a player has over 30 gold they have won and the game is over
 		// first get the winner's names
 		console.log('Game Over')
+		console.log('Winner Idxs: '+winnerIdxs)
 		var winners = [];
 		for (var i = 0; i < winnerIdxs.length; i++) {
 			winners.push(rooms[data.roomCode]["playerList"][winnerIdxs[i]]);
 		}
+		console.log('Winners: '+winners)
 		// send the game winning results to clients in this room
 		io.sockets.in(data.roomCode).emit('gameOver', {winners: winners,goldValue: rooms[data.roomCode]["goldValue"]});
 		return true;
