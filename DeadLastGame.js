@@ -295,7 +295,7 @@ function onSubmitShowdown(data) {
 				(rooms[data.roomCode]["playerList"][i]!==rooms[data.roomCode]["showdownSummary"][1].player)){
 					// if player is not one of the showdown contestants, give them a gold piece
 					rooms[data.roomCode]["goldPieces"][i] = rooms[data.roomCode]["goldPieces"][i] + 1;
-					rooms[data.roomCode]["goldValue"][i] = rooms[data.roomCode]["goldValue"][plrIdx]+getGold();
+					rooms[data.roomCode]["goldValue"][i] = rooms[data.roomCode]["goldValue"][i]+getGold();
 				}
 			}
 		}
@@ -341,12 +341,12 @@ function onSubmitShowdown(data) {
 				var plrIdx = rooms[data.roomCode]["playerList"].indexOf(rooms[data.roomCode]["showdownSummary"][i].player);
 				rooms[data.roomCode]["goldPieces"][plrIdx] = rooms[data.roomCode]["goldPieces"][plrIdx] + rooms[data.roomCode]["showdownSummary"][i].goldGiven;
 				for (var j = 0; j < rooms[data.roomCode]["showdownSummary"][i].goldGiven; j++) {
-					rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][0]+getGold();
+					rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][plrIdx]+getGold();
 				}
 			}
 		}
 		console.log(rooms[data.roomCode]["showdownSummary"][0].player+' given '+rooms[data.roomCode]["showdownSummary"][0].goldGiven+' gold');
-		console.log(rooms[data.roomCode]["showdownSummary"][0].player+' given '+rooms[data.roomCode]["showdownSummary"][0].goldGiven+' gold');
+		console.log(rooms[data.roomCode]["showdownSummary"][1].player+' given '+rooms[data.roomCode]["showdownSummary"][1].goldGiven+' gold');
 		console.log('Gold Value: '+rooms[data.roomCode]["goldValue"]);
 		console.log('Gold Pieces: '+rooms[data.roomCode]["goldPieces"]);
 		if(!checkGameOver(data)){

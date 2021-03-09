@@ -610,9 +610,11 @@ jQuery(function($){
 				$('#showdownSummary').append('<br/>');
 			}
 			
-			if((data.showdownSummary[0].goldGiven+data.showdownSummary[1].goldGiven)==0){
-				// if no gold was given then both players chose steal
-				$('#showdownSummary').append('Everyone but '+data.showdownSummary[i].player+' and '+data.showdownSummary[i].player+' received 1 gold piece');
+			if((data.showdownSummary[0].action =='steal')&&(data.showdownSummary[1].action=='steal')){
+				// if both players chose steal
+				$('#showdownSummary').append('<br/>');
+				$('#showdownSummary').append('Everyone but '+data.showdownSummary[0].player+' and '+data.showdownSummary[1].player+' received 1 gold piece');
+				$('#showdownSummary').append('<br/>');
 			}
 			else{
 				$('#showdownSummary').append('<br/>');
