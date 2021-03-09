@@ -28,6 +28,7 @@ exports.initGame = function(sio, socket){
 	// both host and player events
 	gameSocket.on('onSubmitVote', onSubmitVote);
 	gameSocket.on('onSubmitAmbush', onSubmitAmbush);
+	gameSocket.on('onSubmitShowdown', onSubmitShowdown);
 }
 
 // Host has clicked the 'CREATE GAME' button with valid username
@@ -88,6 +89,8 @@ function onStartGame(data) {
 	// reset players succesfully ambushing
 	rooms[data.roomCode]["ambushingPlayers"] = [];
 	rooms[data.roomCode]["ambushSummary"] = [];
+	// reset showdown summary
+	rooms[data.roomCode]["showdownSummary"] = [];
 	// Emit an event having all players in lobby begin game
     io.sockets.in(data.roomCode).emit('initGame');
 }
@@ -193,10 +196,10 @@ function onSubmitVote(data) {
 				rooms[data.roomCode]["playersAlive"].splice(plrIdx,1);
 			}
 		}
-		if((rooms[data.roomCode]["playersAlive"].length<=2)&&(rooms[data.roomCode]["ambushingPlayers"].length==0)){
-			// if round is over (two or less players left and there are no succesfully ambushing players)	
-			// reward the remaining survivors	
-			rewardSurvivors(data);
+		if((rooms[data.roomCode]["playersAlive"].length<=1)&&(rooms[data.roomCode]["ambushingPlayers"].length==0)){
+			// if round is over (one or less players left and there are no succesfully ambushing players)	
+			// reward the remaining survivor	
+			rewardSurvivor(data);
 			if(!checkGameOver(data)){
 				// if game is not over, send the round's results to the clients in this room
 				io.sockets.in(data.roomCode).emit('votingDone', {maxVote: maxVote, majorityVoteIdxs: maxIndices,ambushingPlayers: rooms[data.roomCode]["ambushingPlayers"],
@@ -244,10 +247,10 @@ function onSubmitAmbush(data) {
 	if((rooms[data.roomCode]["ambushingPlayers"].length==0)){
 		// if there are no more ambushers
 		console.log('No more ambushers');
-		if(rooms[data.roomCode]["playersAlive"].length<=2){
-			// if there are only 2 survivors the round is over
-			// reward the remaining survivors	
-			rewardSurvivors(data);
+		if(rooms[data.roomCode]["playersAlive"].length<=1){
+			// if there is only 1 or less survivors the round is over
+			// reward the remaining survivor	
+			rewardSurvivor(data);
 			if(!checkGameOver(data)){
 				console.log('Sending Ambush summary to clients');
 				// if game is not over send the ambush summary to the clients
@@ -277,28 +280,110 @@ function onSubmitAmbush(data) {
 	}
 }
 
-// rewards remaining survivors with 4 gold pieces split between them
-function rewardSurvivors(data) {
-	if(rooms[data.roomCode]["playersAlive"].length > 0) {
-		// if there are living players give them gold
-		if(rooms[data.roomCode]["playersAlive"].length == 1) {
-			// if only one player left give them 4 gold pieces
-			var plrIdx = rooms[data.roomCode]["playerList"].indexOf(rooms[data.roomCode]["playersAlive"][0]);
-			console.log(rooms[data.roomCode]["playerList"][plrIdx]+' is being given gold');
-			rooms[data.roomCode]["goldPieces"][plrIdx] = rooms[data.roomCode]["goldPieces"][0] + 4;
-			rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][0]+between(3, 5)+between(3, 5)+between(3, 5)+between(3, 5);
-		}
-		else{
-			// give remaining players two gold pieces each
-			for (var i = 0; i < rooms[data.roomCode]["playersAlive"].length; i++) {
-				var plrIdx = rooms[data.roomCode]["playerList"].indexOf(rooms[data.roomCode]["playersAlive"][i]);
-				console.log(rooms[data.roomCode]["playerList"][plrIdx]+' is being given gold');
-				rooms[data.roomCode]["goldPieces"][plrIdx] = rooms[data.roomCode]["goldPieces"][plrIdx] + 2;
-				rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][plrIdx]+between(3, 5)+between(3, 5);
+// Submit Ambush has been pressed
+// data = {roomCode: , action: , username: }
+function onSubmitShowdown(data) {
+	var summary = {player: data.username, action: data.action, goldGiven: 0}; 
+	rooms[data.roomCode]["showdownSummary"].push(summary);
+	if(rooms[data.roomCode]["showdownSummary"].length>=2){
+		// if all alive players have taken a showdown action (there should only be 2 players alive)
+		// determine the results of the showdown
+		if((rooms[data.roomCode]["showdownSummary"][0].action=='steal')&&(rooms[data.roomCode]["showdownSummary"][1].action=='steal')){
+			// if both players selet steal, then give everyone else in the lobby 1 gold piece
+			for (var i = 0; i < rooms[data.roomCode]["playerList"].length; i++) {
+				if((rooms[data.roomCode]["playerList"][i]!==rooms[data.roomCode]["showdownSummary"][0].player)&&
+				(rooms[data.roomCode]["playerList"][i]!==rooms[data.roomCode]["showdownSummary"][1].player)){
+					// if player is not one of the showdown contestants, give them a gold piece
+					rooms[data.roomCode]["goldPieces"][i] = rooms[data.roomCode]["goldPieces"][i] + 1;
+					rooms[data.roomCode]["goldValue"][i] = rooms[data.roomCode]["goldValue"][plrIdx]+getGold();
+				}
 			}
 		}
-		console.log('Gold value for each player: '+rooms[data.roomCode]["goldValue"]);
+		else{
+			if(rooms[data.roomCode]["showdownSummary"][1].action == 'grab'){
+				// player 1 selected grab, they are guarenteed 1 gold
+				rooms[data.roomCode]["showdownSummary"][1].goldGiven = 1;
+			}
+			if(rooms[data.roomCode]["showdownSummary"][0].action == 'grab'){
+				// player 0 selected grab, they are guarenteed 1 gold
+				rooms[data.roomCode]["showdownSummary"][0].goldGiven = 1;
+				if(rooms[data.roomCode]["showdownSummary"][1].action !== 'grab'){
+					// player 1 didn't select grab and go, they get 3 gold
+					rooms[data.roomCode]["showdownSummary"][1].goldGiven = 3;
+				}
+			}
+			else if(rooms[data.roomCode]["showdownSummary"][0].action == 'share'){
+				// player 0 selected share
+				if(rooms[data.roomCode]["showdownSummary"][1].action == 'share'){
+					// player 1 selected share as well, split the pot (2 each)
+					rooms[data.roomCode]["showdownSummary"][0].goldGiven = 2;
+					rooms[data.roomCode]["showdownSummary"][1].goldGiven = 2;
+				}
+				else if(rooms[data.roomCode]["showdownSummary"][1].action == 'steal'){
+					// player 1 selected steal, they get all the gold
+					rooms[data.roomCode]["showdownSummary"][1].goldGiven = 4;
+				}
+			}
+			else{
+				// player 0 selected steal
+				if(rooms[data.roomCode]["showdownSummary"][1].action == 'share'){
+					// player 1 selected share, but player 0 selected steal (player 0 gets 4 gold pieces)
+					rooms[data.roomCode]["showdownSummary"][0].goldGiven = 4;
+				}
+				else if(rooms[data.roomCode]["showdownSummary"][1].action == 'grab'){
+					// player 1 selected grab, player 0 steals the remaining 3
+					rooms[data.roomCode]["showdownSummary"][0].goldGiven = 3;
+				}
+			}
+			
+			// award gold to players according to the goldGiven field of the "showdownSummary"
+			for (var i = 0; i < rooms[data.roomCode]["showdownSummary"].length; i++) {
+				var plrIdx = rooms[data.roomCode]["playerList"].indexOf(rooms[data.roomCode]["showdownSummary"][i].player);
+				rooms[data.roomCode]["goldPieces"][plrIdx] = rooms[data.roomCode]["goldPieces"][plrIdx] + rooms[data.roomCode]["showdownSummary"][i].goldGiven;
+				for (var j = 0; j < rooms[data.roomCode]["showdownSummary"][i].goldGiven; j++) {
+					rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][0]+getGold();
+				}
+			}
+		}
+		console.log(rooms[data.roomCode]["showdownSummary"][0].player+' given '+rooms[data.roomCode]["showdownSummary"][0].goldGiven+' gold');
+		console.log(rooms[data.roomCode]["showdownSummary"][0].player+' given '+rooms[data.roomCode]["showdownSummary"][0].goldGiven+' gold');
+		console.log('Gold Value: '+rooms[data.roomCode]["goldValue"]);
+		console.log('Gold Pieces: '+rooms[data.roomCode]["goldPieces"]);
+		if(!checkGameOver(data)){
+			// if game is not over then end the round
+			io.sockets.in(data.roomCode).emit('showdownOver', {showdownSummary: rooms[data.roomCode]["showdownSummary"], 
+				goldPieces: rooms[data.roomCode]["goldPieces"]});
+			rooms[data.roomCode]["showdownSummary"] = [];
+		}
+		// reset players alive
+		rooms[data.roomCode]["playersAlive"] = rooms[data.roomCode]["playerList"].slice();
+		//reset number of votes
+		rooms[data.roomCode]["totalVotes"] = 0;
+		// reset all votes to zero
+		rooms[data.roomCode]["playerVoteCnts"] = new Array(rooms[data.roomCode]["playersAlive"].length).fill(0);
+		rooms[data.roomCode]["playerVotes"] = new Array(rooms[data.roomCode]["playersAlive"].length).fill(0);
 	}
+	else{
+		// otherwise, update the showdown waiting list
+		// Emit an event notifying the clients that a player has taken showdown action, update the showdown waiting list
+		io.sockets.in(data.roomCode).emit('playerShowed', {player: data.username});
+	}
+}
+
+
+// Helper functions, not caused directly by client
+
+// rewards remaining survivor with 4 gold pieces
+function rewardSurvivor(data) {
+	if(rooms[data.roomCode]["playersAlive"].length == 1) {
+		// if only one player left give them 4 gold pieces
+		var plrIdx = rooms[data.roomCode]["playerList"].indexOf(rooms[data.roomCode]["playersAlive"][0]);
+		console.log(rooms[data.roomCode]["playerList"][plrIdx]+' is being given gold');
+		rooms[data.roomCode]["goldPieces"][plrIdx] = rooms[data.roomCode]["goldPieces"][0] + 4;
+		rooms[data.roomCode]["goldValue"][plrIdx] = rooms[data.roomCode]["goldValue"][0]+getGold()+getGold()+getGold()+getGold();
+	}
+	console.log('Gold pieces for each player: '+rooms[data.roomCode]["goldPieces"]);
+	console.log('Gold value for each player: '+rooms[data.roomCode]["goldValue"]);
 }
 
 function checkGameOver(data) {
@@ -323,8 +408,6 @@ function checkGameOver(data) {
 	}
 }
 
-// General Utility helper functions
-
 // get indice(s) of max value(s) in an array
 function getMaxIndices(arr) {
     var max = arr[0];
@@ -345,9 +428,13 @@ function getMaxIndices(arr) {
     return [max, maxIndex];
 }
 
-// generate random value between min and max
-function between(min, max) {  
-  return Math.floor(
-    Math.random() * (max - min + 1) + min
-  )
+// generate gold value between min and max
+function getGold() {  
+	// currently uniform distribution between 3 and 5
+	// may change distribution of gold values later
+	var min = 3;
+	var max = 5;
+	return Math.floor(
+		Math.random() * (max - min + 1) + min
+	)
 }

@@ -31,6 +31,8 @@ jQuery(function($){
 			IO.socket.on('votingDone',App.dispPlayerActions);
 			IO.socket.on('playerAmbushed',App.playerAmbushed);
 			IO.socket.on('ambushOver',App.dispAmbushSummary);
+			IO.socket.on('playerShowed',App.playerShowed);
+			IO.socket.on('showdownOver',App.showdownOver);
 			IO.socket.on('gameOver',App.gameOver);
 			IO.socket.on('error',App.error);
         },
@@ -124,6 +126,9 @@ jQuery(function($){
 			App.$ambushScreen = $('#ambush-screen-template').html();
 			App.$ambushWaitScreen = $('#ambush-waiting-screen-template').html();
 			App.$ambushSummaryScreen = $('#ambush-summary-screen-template').html();
+			App.$showdownScreen = $('#showdown-screen-template').html();
+			App.$showdownWaitScreen = $('#showdown-waiting-screen-template').html();
+			App.$showdownSummaryScreen = $('#showdown-summary-screen-template').html();
 			App.$winnerScreen = $('#winner-screen-template').html();
         },
 
@@ -141,6 +146,9 @@ jQuery(function($){
 			App.$doc.on('click', '#btnContinue', App.continue);
 			App.$doc.on('click', '#btnStartAmbush', App.ambush);
 			App.$doc.on('click', '#btnSubmitAmbush', App.submitAmbush);
+			App.$doc.on('click', '#btnStartShowdown', App.startShowdown);
+			App.$doc.on('click', '#btnSubmitShowdown', App.submitShowdown);
+			App.$doc.on('click', '#btnNextRound', App.continue);
 			App.$doc.on('click', '#btnGetResults', App.showResults);
 			App.$doc.on('click', '#btnReturnLobby', App.returnLobby);
 
@@ -173,8 +181,10 @@ jQuery(function($){
 
 		// show how to screen
 		showHowTo: function() {
-            App.$gameArea.html(App.$templateHowToPlay);
-            App.doTextFit('.title');
+			// open site window with instructions on how to play
+			window.open("https://www.ultraboardgames.com/dead-last/game-rules.php", "_blank"); 
+            //App.$gameArea.html(App.$templateHowToPlay);
+            //App.doTextFit('.title');
         },
 
 		createGame: function () {
@@ -255,20 +265,28 @@ jQuery(function($){
 				$('#results').append('<br/>');
 				$('#results').append(App.players[i]+": "+App.goldPieces[i]);
 			}
-
-			if(App.playersAlive.length>2){
-				$('#btnContinue').text('Continue');
+			
+			if(App.playersAlive.length==2){
+				$('#btnContinue').hide();
+				$('#results').append('<br/>');
+				$('#results').append('2 players left, prepare for a showdown!');
 			}
 			else{
-				$('#btnContinue').text('New Round');
+				$('#btnStartShowdown').hide();
+				if(App.playersAlive.length>1){
+					$('#btnContinue').text('Continue');
+				}
+				else{
+					$('#btnContinue').text('New Round');
+				}
 			}
         },
 		
 		// continue button was pressed
 		// sends players to next round
 		continue: function() {
-			if(App.playersAlive.length<=2){
-				//if two or less players left, then round is over
+			if(App.playersAlive.length<=1){
+				//if one or less players left, then round is over
 				// reset the players alive list
 				App.playersAlive = App.players;
 			}
@@ -336,6 +354,54 @@ jQuery(function($){
 			IO.socket.emit('onSubmitAmbush',{roomCode: App.roomCode, vote: selectedPlayer, username: App.name});
         },
 		
+		// occurs when btnStartShowdown is pressed
+		startShowdown: function() {
+			if(App.playersAlive.includes(App.name)){
+				// if player is alive, they are a part of the showdown. 
+				// show the showdown selection screen
+				App.$gameArea.html(App.$showdownScreen);
+
+				// add options to showdown selection
+				$('#showdownSelect').append($('<option>', {
+					value: 'grab',
+					text: 'grab'
+				}));
+				$('#showdownSelect').append($('<option>', {
+					value: 'share',
+					text: 'share'
+				}));
+				$('#showdownSelect').append($('<option>', {
+					value: 'steal',
+					text: 'steal'
+				}));
+			}
+			else{
+				// if not alive, then show the waiting screen
+				App.$gameArea.html(App.$showdownWaitScreen);
+				if(App.userRole == 'Host'){
+					$('#btnEndShowdown').show();
+				}
+				else{
+					$('#btnEndShowdown').hide();
+				}
+				App.updateShowdownWaitList();
+			}
+        },
+
+		// occurs when btnSubmitShowdown is pressed, get showdown selection and send it to the server
+		submitShowdown: function() {
+			var selectedAction = $('#showdownSelect').val();
+            App.$gameArea.html(App.$showdownWaitScreen);
+			if(App.userRole == 'Host'){
+				$('#btnEndShowdown').show();
+			}
+			else{
+				$('#btnEndShowdown').hide();
+			}
+			IO.socket.emit('onSubmitShowdown',{roomCode: App.roomCode, action: selectedAction, username: App.name});
+			App.updateShowdownWaitList();
+        },
+
 		// from winner screen, return to lobby has been pressed
 		returnLobby: function() {
 			if(App.userRole == 'Host'){
@@ -392,7 +458,7 @@ jQuery(function($){
 		// occurs when server starts game for all players from host request
 		initGame: function(){
 			// show voting area
-			playersDone = []; // empty players done list
+			App.playersDone = []; // empty players done list
 			App.playersAlive = App.players; // reset players alive list
 			App.$gameArea.html(App.$templateVotingScreen);
 			App.doTextFit('.title');
@@ -400,15 +466,24 @@ jQuery(function($){
 		},
 
 		// occurs when server recieves a vote
+		// data = {playerDone:}
 		playerVoted: function(data){
 			App.playersDone.push(data.playerDone);
 			App.updateWaitList();
 		},
 
 		// occurs when server recieves ambush target
+		// data = {ambushingPlayers:}
 		playerAmbushed: function(data){
 			App.ambushingPlayers = data.ambushingPlayers;
 			App.updateAmbushWaitList();
+		},
+
+		// occurs when server recieves showdown action
+		// data = {player:}
+		playerShowed: function(data){
+			App.playersDone.push(data.player);
+			App.updateShowdownWaitList();
 		},
 
 		// a player has won, display the winner's name(s)
@@ -524,6 +599,41 @@ jQuery(function($){
 			App.playersAlive = data.playersAlive; // update players alive list
 			console.log('Player Votes: '+data.playerVotes);
         },
+
+		// occurs when every player has finished the showdown
+		// data = {showdownSummary:, goldPieces:}
+		showdownOver: function (data){
+			App.$gameArea.html(App.$showdownSummaryScreen);
+			App.doTextFit('.title');
+			for (i = 0; i < data.showdownSummary.length; i++) {
+				$('#showdownSummary').append(data.showdownSummary[i].player+' chose '+data.showdownSummary[i].action);
+				$('#showdownSummary').append('<br/>');
+			}
+			
+			if((data.showdownSummary[0].goldGiven+data.showdownSummary[1].goldGiven)==0){
+				// if no gold was given then both players chose steal
+				$('#showdownSummary').append('Everyone but '+data.showdownSummary[i].player+' and '+data.showdownSummary[i].player+' received 1 gold piece');
+			}
+			else{
+				$('#showdownSummary').append('<br/>');
+				for (i = 0; i < data.showdownSummary.length; i++) {
+					$('#showdownSummary').append(data.showdownSummary[i].player+' recieved '+data.showdownSummary[i].goldGiven+' gold pieces');
+					$('#showdownSummary').append('<br/>');
+				}
+			}
+
+			$('#showdownSummary').append('<br/>');
+			// update the gold pieces
+			App.goldPieces = data.goldPieces;
+			$('#showdownSummary').append("Gold pieces of each player: ");
+			for (i = 0; i < App.goldPieces.length; i++) {
+				$('#showdownSummary').append('<br/>');
+				$('#showdownSummary').append(App.players[i]+": "+App.goldPieces[i]);
+			}
+			// consider everyone eliminated after showdown, for continue() to work correctly
+			App.playersAlive = [];
+			App.playersDone = []; // empty players done list
+		},
 		
 		error: function (data){
 			alert(data.message);
@@ -574,6 +684,18 @@ jQuery(function($){
 				// display players who still need to choose ambush targets
 				$('#ambushWaitList').append('<br/>');
 				$('#ambushWaitList').append(App.ambushingPlayers[i]);
+			}
+		},
+
+		// updates player list in showndown wait area
+		updateShowdownWaitList: function(){
+			$('#showdownWaitList').text('Waiting For:');
+			for (var i = 0; i < App.players.length; i++) {
+				if(!App.playersDone.includes(App.playersAlive[i])){
+					// if a living player is not done voting the display their name in waitlist
+					$('#showdownWaitList').append('<br/>');
+					$('#showdownWaitList').append(App.playersAlive[i]);
+				}
 			}
 		},
 

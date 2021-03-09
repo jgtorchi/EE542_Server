@@ -199,7 +199,7 @@
 				<button id="btnViewResults" class="btn results">View Results</button>
                 <div style="clear:both"></div>
 			</div>
-			
+
 			<div class="buttons">
 				<button id="btnStartAmbush" class="btn ambush">Start Ambush</button>
                 <div style="clear:both"></div>
@@ -216,6 +216,11 @@
 
 			<div class="buttons">
 				<button id="btnContinue" class="btn continue">Continue</button>
+                <div style="clear:both"></div>
+			</div>
+		
+			<div class="buttons">
+				<button id="btnStartShowdown" class="btn showdown">Start showdown</button>
                 <div style="clear:both"></div>
 			</div>
 
@@ -277,6 +282,67 @@
 
 			<div class="buttons">
 				<button id="btnGetResults" class="btn round summary">View Results</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Showdown Screen -->
+	<script id="showdown-screen-template" type="text/template">
+		<div class="titleWrapper">
+			<div class="title">
+                Showdown Phase
+            </div>
+				
+			<div class="inputLabel">
+                Select showdown action
+            </div>
+
+			<select id="showdownSelect">
+			</select>
+
+			<div class="buttons">
+				<button id="btnSubmitShowdown" class="btn sumbit showdown">Submit Action</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Showdown Waiting Screen -->
+	<script id="showdown-waiting-screen-template" type="text/template">
+		<div class="titleWrapper">
+				
+			<div class="inputLabel">
+                Waiting for showdown selection
+            </div>
+
+			<div class="inputLabel" id="showdownWaitList">
+                Waiting for: 
+            </div>
+
+			<div class="buttons">
+				<button id="btnEndShowdown" class="btn">End Showdown</button>
+                <div style="clear:both"></div>
+			</div>
+
+		</div class>
+	</script>
+
+	<!-- Showdown Summary Screen -->
+	<script id="showdown-summary-screen-template" type="text/template">
+		<div class="titleWrapper">
+				
+			<div class="title">
+                Showdown Summary
+            </div>
+
+			<div class="inputLabel" id="showdownSummary">
+            </div>
+
+			<div class="buttons">
+				<button id="btnNextRound" class="btn next round">Next Round</button>
                 <div style="clear:both"></div>
 			</div>
 
